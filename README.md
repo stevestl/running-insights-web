@@ -84,7 +84,18 @@ export default defineConfig({
    - Go to `Settings` -> `Pages`
    - Set `Source` to `GitHub Actions`
 
-4. Commit and push:
+4. Add Firebase values as GitHub Actions secrets:
+   - `Settings` -> `Secrets and variables` -> `Actions` -> `New repository secret`
+   - Add these exact secret names:
+     - `VITE_FIREBASE_API_KEY`
+     - `VITE_FIREBASE_AUTH_DOMAIN`
+     - `VITE_FIREBASE_PROJECT_ID`
+     - `VITE_FIREBASE_STORAGE_BUCKET`
+     - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+     - `VITE_FIREBASE_APP_ID`
+   - Use the same values from your local `.env`.
+
+5. Commit and push:
 
 ```bash
 git add .github/workflows/deploy.yml vite.config.ts README.md
@@ -92,7 +103,7 @@ git commit -m "Configure GitHub Pages Actions deployment"
 git push
 ```
 
-5. Confirm deployment status:
+6. Confirm deployment status:
    - Go to repo `Actions` tab
    - Open `Deploy to GitHub Pages` workflow
    - Wait for both jobs to pass:
@@ -100,20 +111,23 @@ git push
      - `deploy` = green check
    - When complete, the `deploy` job shows the published URL.
 
-6. Open the app:
+7. Open the app:
    - `https://<YOUR_USER>.github.io/<YOUR_REPO>/`
    - Keep the trailing slash.
 
-7. How to know deployment is complete:
+8. How to know deployment is complete:
    - `Actions` workflow run shows `✓ Success`
    - `Settings` -> `Pages` shows:
      - `Your site is live at ...`
      - `Last deployed by GitHub Actions ...`
    - The site loads without JS/CSS 404 errors.
 
-8. Troubleshooting blank screen + JS 404:
+9. Troubleshooting blank screen + JS 404:
    - Workflow not running:
      - file path is wrong (must be `.github/workflows/deploy.yml`)
+   - Firebase `auth/invalid-api-key`:
+     - missing/empty GitHub Actions secrets
+     - set all `VITE_FIREBASE_*` secrets and redeploy
    - Pages source wrong:
      - ensure `Settings` -> `Pages` -> `Source = GitHub Actions`
    - Wrong URL:
