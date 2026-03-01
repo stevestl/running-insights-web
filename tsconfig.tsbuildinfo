@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/addrunview.tsx","./src/components/analyzeview.tsx","./src/components/authgate.tsx","./src/components/runsview.tsx","./src/lib/defaults.ts","./src/lib/firebase.ts","./src/lib/firestoreruns.ts","./src/lib/format.ts","./src/lib/runmath.ts","./src/types/models.ts"],"version":"5.9.3"}
