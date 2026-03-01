@@ -62,42 +62,9 @@ git remote add origin https://github.com/<YOUR_USER>/<YOUR_REPO>.git
 git push -u origin main
 ```
 
-### C) Deploy on GitHub Pages (simple static hosting)
+### C) Deploy on GitHub Pages with GitHub Actions (recommended)
 
-1. Confirm your branch is pushed:
-   - `git checkout main`
-   - `git push -u origin main`
-
-2. Install the deploy package:
-   - `npm install -D gh-pages`
-
-3. Update `package.json` with `homepage` and deploy scripts.
-   - Set `homepage` to:
-     - `https://<YOUR_USER>.github.io/<YOUR_REPO>/`
-   - Add these scripts:
-     - `"predeploy": "npm run build"`
-     - `"deploy": "gh-pages -d dist"`
-   - Example:
-
-```json
-{
-  "name": "running-insights-web",
-  "private": true,
-  "version": "0.1.0",
-  "type": "module",
-  "homepage": "https://<YOUR_USER>.github.io/<YOUR_REPO>/",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
-  }
-}
-```
-
-4. Update `vite.config.ts` base path.
-   - Recommended (most robust): use relative assets so repo/path changes do not break deploys:
+1. Ensure `vite.config.ts` uses a safe base path:
 
 ```ts
 import { defineConfig } from "vite";
@@ -109,41 +76,52 @@ export default defineConfig({
 });
 ```
 
-   - Alternative: use `base: "/<YOUR_REPO>/"` only if repo name/path is fixed and exact.
+2. Ensure workflow file exists at this exact path:
+   - `.github/workflows/deploy.yml`
+   - Note: a file like `deploy.yaml` at repo root will not run.
 
-5. Commit these changes:
-   - `git add package.json package-lock.json vite.config.ts`
-   - `git commit -m "Configure GitHub Pages deployment"`
-   - `git push`
-
-6. Deploy from your local machine:
-   - `npm run deploy`
-   - This creates/updates the `gh-pages` branch automatically.
-
-7. Configure GitHub Pages in the repo:
+3. In GitHub repo settings:
    - Go to `Settings` -> `Pages`
-   - `Source`: `Deploy from a branch`
-   - `Branch`: `gh-pages` and folder `/ (root)`
-   - Click `Save`
+   - Set `Source` to `GitHub Actions`
 
-8. Open your app URL:
+4. Commit and push:
+
+```bash
+git add .github/workflows/deploy.yml vite.config.ts README.md
+git commit -m "Configure GitHub Pages Actions deployment"
+git push
+```
+
+5. Confirm deployment status:
+   - Go to repo `Actions` tab
+   - Open `Deploy to GitHub Pages` workflow
+   - Wait for both jobs to pass:
+     - `build` = green check
+     - `deploy` = green check
+   - When complete, the `deploy` job shows the published URL.
+
+6. Open the app:
    - `https://<YOUR_USER>.github.io/<YOUR_REPO>/`
-   - First publish can take a few minutes.
+   - Keep the trailing slash.
 
-9. Every time you want to publish updates:
-   - `git push` (to save your source code changes)
-   - `npm run deploy` (to publish the latest `dist` to `gh-pages`)
+7. How to know deployment is complete:
+   - `Actions` workflow run shows `✓ Success`
+   - `Settings` -> `Pages` shows:
+     - `Your site is live at ...`
+     - `Last deployed by GitHub Actions ...`
+   - The site loads without JS/CSS 404 errors.
 
-10. Troubleshooting:
-   - Blank page or missing JS/CSS (404 in console):
-     - confirm URL includes repo path and trailing slash:
-       - `https://<YOUR_USER>.github.io/<YOUR_REPO>/`
-     - prefer `base: "./"` in `vite.config.ts`
-     - redeploy after any base/path change
-   - 404 on refresh for sub-routes:
-     - prefer hash routing, or keep navigation inside one page tabs
-   - Old content still showing:
-     - hard refresh browser (`Cmd+Shift+R`) after deploy
+8. Troubleshooting blank screen + JS 404:
+   - Workflow not running:
+     - file path is wrong (must be `.github/workflows/deploy.yml`)
+   - Pages source wrong:
+     - ensure `Settings` -> `Pages` -> `Source = GitHub Actions`
+   - Wrong URL:
+     - use `https://<YOUR_USER>.github.io/<YOUR_REPO>/`
+   - Cached old site:
+     - hard refresh (`Cmd+Shift+R`)
+   - If workflow fails:
+     - open the failed job in `Actions` and fix the first red step.
 
 ### D) Secure config notes
 
