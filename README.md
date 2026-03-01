@@ -96,7 +96,8 @@ git push -u origin main
 }
 ```
 
-4. Update `vite.config.ts` so built assets use the repo subpath:
+4. Update `vite.config.ts` base path.
+   - Recommended (most robust): use relative assets so repo/path changes do not break deploys:
 
 ```ts
 import { defineConfig } from "vite";
@@ -104,9 +105,11 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  base: "/<YOUR_REPO>/"
+  base: "./"
 });
 ```
+
+   - Alternative: use `base: "/<YOUR_REPO>/"` only if repo name/path is fixed and exact.
 
 5. Commit these changes:
    - `git add package.json package-lock.json vite.config.ts`
@@ -132,9 +135,11 @@ export default defineConfig({
    - `npm run deploy` (to publish the latest `dist` to `gh-pages`)
 
 10. Troubleshooting:
-   - Blank page or missing JS/CSS:
-     - check `base: "/<YOUR_REPO>/"` in `vite.config.ts`
-     - check `homepage` matches exactly
+   - Blank page or missing JS/CSS (404 in console):
+     - confirm URL includes repo path and trailing slash:
+       - `https://<YOUR_USER>.github.io/<YOUR_REPO>/`
+     - prefer `base: "./"` in `vite.config.ts`
+     - redeploy after any base/path change
    - 404 on refresh for sub-routes:
      - prefer hash routing, or keep navigation inside one page tabs
    - Old content still showing:
