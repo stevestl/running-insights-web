@@ -102,6 +102,20 @@ function std(values: number[]): number {
   return Math.sqrt(values.map((v) => (v - avg) ** 2).reduce((a, b) => a + b, 0) / values.length);
 }
 
+function comparisonBlocks<T>(values: T[]): { previous: T[]; recent: T[] } {
+  if (values.length >= 8) {
+    return {
+      previous: values.slice(-8, -4),
+      recent: values.slice(-4)
+    };
+  }
+  const half = Math.floor(values.length / 2);
+  return {
+    previous: values.slice(0, half),
+    recent: values.slice(-half)
+  };
+}
+
 export function insights(runs: RunEntry[], type: RunType): Insight[] {
   const filtered = runs.filter((r) => r.type === type).sort((a, b) => a.dateISO.localeCompare(b.dateISO));
   if (filtered.length < 4) {
@@ -109,11 +123,13 @@ export function insights(runs: RunEntry[], type: RunType): Insight[] {
   }
 
   const items: Insight[] = [];
+  const blocks = comparisonBlocks(filtered);
+
   if (type !== "Easy") {
-    const last4 = filtered.slice(-4).map(averagePace);
-    const prev4 = filtered.slice(-8, -4).map(averagePace);
-    if (last4.length > 0 && prev4.length > 0) {
-      const delta = mean(last4) - mean(prev4);
+    const recentPace = blocks.recent.map(averagePace);
+    const prevPace = blocks.previous.map(averagePace);
+    if (recentPace.length > 0 && prevPace.length > 0) {
+      const delta = mean(recentPace) - mean(prevPace);
       items.push({
         title: "Overall pace trend",
         detail: delta < -8
@@ -124,10 +140,10 @@ export function insights(runs: RunEntry[], type: RunType): Insight[] {
     }
   }
 
-  const hrLast4 = filtered.slice(-4).map((r) => r.averageHeartRate);
-  const hrPrev4 = filtered.slice(-8, -4).map((r) => r.averageHeartRate);
-  if (hrLast4.length > 0 && hrPrev4.length > 0) {
-    const delta = mean(hrLast4) - mean(hrPrev4);
+  const hrRecent = blocks.recent.map((r) => r.averageHeartRate);
+  const hrPrevious = blocks.previous.map((r) => r.averageHeartRate);
+  if (hrRecent.length > 0 && hrPrevious.length > 0) {
+    const delta = mean(hrRecent) - mean(hrPrevious);
     items.push({
       title: "Cardiac load",
       detail: Math.abs(delta) <= 3 ? "Average HR is stable." : `Average HR shifted by ${Math.round(delta)} bpm.`,
@@ -148,16 +164,24 @@ export function insights(runs: RunEntry[], type: RunType): Insight[] {
   }
 
   if (type === "Easy") {
-    const last4 = filtered.slice(-4).map((r) => r.easyDurationSeconds);
-    const prev4 = filtered.slice(-8, -4).map((r) => r.easyDurationSeconds);
-    if (last4.length > 0 && prev4.length > 0) {
-      const delta = mean(last4) - mean(prev4);
+    const recentDuration = blocks.recent.map((r) => r.easyDurationSeconds);
+    const prevDuration = blocks.previous.map((r) => r.easyDurationSeconds);
+    if (recentDuration.length > 0 && prevDuration.length > 0) {
+      const delta = mean(recentDuration) - mean(prevDuration);
       items.push({
         title: "Easy run duration",
         detail: delta > 120 ? `Recent easy runs are longer by ~${Math.round(delta)} sec.` : `Easy run duration change is ~${Math.round(delta)} sec.`,
         isPositive: delta > 120
       });
     }
+  }
+
+  if (items.length === 0) {
+    return [{
+      title: "Collecting trend signal",
+      detail: `You have ${filtered.length} ${type.toLowerCase()} runs. Add more runs of this type to strengthen trend comparisons.`,
+      isPositive: false
+    }];
   }
 
   return items;

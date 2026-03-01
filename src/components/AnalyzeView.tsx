@@ -53,12 +53,16 @@ export function AnalyzeView({ runs }: Props): JSX.Element {
 
       <div className="card">
         <h3>Actionable Insights</h3>
-        {cards.map((card) => (
-          <div className={`insight ${card.isPositive ? "good" : "warn"}`} key={card.title}>
-            <div className="insight-title">{card.title}</div>
-            <div className="muted">{card.detail}</div>
-          </div>
-        ))}
+        {cards.length === 0 ? (
+          <div className="muted">No insight cards available yet for this run type.</div>
+        ) : (
+          cards.map((card) => (
+            <div className={`insight ${card.isPositive ? "good" : "warn"}`} key={card.title}>
+              <div className="insight-title">{card.title}</div>
+              <div className="muted">{card.detail}</div>
+            </div>
+          ))
+        )}
       </div>
 
       <div className="card">
