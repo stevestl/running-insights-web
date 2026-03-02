@@ -11,9 +11,10 @@ export function subscribeRuns(userId: string, onRuns: (runs: RunEntry[]) => void
       for (const d of snap.docs) {
         const run = toRunEntry(d.data(), d.id);
         const freshness = resolveFreshnessEpochMillis(d.data());
-        const existing = selectedById.get(run.id);
+        const canonicalId = canonicalRunIdFromData(d.data(), d.id);
+        const existing = selectedById.get(canonicalId);
         if (!existing || freshness >= existing.freshness) {
-          selectedById.set(run.id, { run, freshness });
+          selectedById.set(canonicalId, { run, freshness });
         }
       }
 
@@ -33,16 +34,28 @@ export async function saveRun(userId: string, run: RunEntry): Promise<void> {
 }
 
 export async function removeRun(userId: string, runId: string): Promise<void> {
-  await deleteDoc(doc(db, "users", userId, "runs", runId));
+  const canonical = canonicalRunId(runId);
+  const snapshot = await getDocs(query(collection(db, "users", userId, "runs")));
+  const matchingDocs = snapshot.docs.filter((d) => d.id === runId || canonicalRunIdFromData(d.data(), d.id) === canonical);
+  if (matchingDocs.length === 0) {
+    await deleteDoc(doc(db, "users", userId, "runs", runId));
+    return;
+  }
+  await Promise.all(matchingDocs.map((d) => deleteDoc(d.ref)));
 }
 
 export async function normalizeRunDateFieldsOnce(userId: string): Promise<void> {
-  const key = `run_date_normalization_v2_${userId}`;
+  const key = `run_data_normalization_v3_${userId}`;
   if (localStorage.getItem(key) === "done") return;
 
   const snapshot = await getDocs(query(collection(db, "users", userId, "runs")));
+  const docsByCanonicalId = new Map<string, typeof snapshot.docs>();
   for (const document of snapshot.docs) {
     const data = document.data();
+    const canonicalId = canonicalRunIdFromData(data, document.id);
+    const existingDocs = docsByCanonicalId.get(canonicalId) ?? [];
+    docsByCanonicalId.set(canonicalId, [...existingDocs, document]);
+
     const hasDate = data.date !== undefined && data.date !== null;
     const hasDateISO = typeof data.dateISO === "string" && data.dateISO.trim().length > 0;
     const iso = resolveDateISO(data);
@@ -57,9 +70,19 @@ export async function normalizeRunDateFieldsOnce(userId: string): Promise<void> 
     const updates: Record<string, unknown> = {};
     if (!hasDateISO || !existingISOMatches) updates.dateISO = canonicalISO;
     if (!hasDate || !existingDateMatches) updates.date = Timestamp.fromDate(canonical);
+    if (canonicalRunId(data.id as string | undefined) !== canonicalId) updates.id = canonicalId;
     if (Object.keys(updates).length > 0) {
       await setDoc(doc(db, "users", userId, "runs", document.id), updates, { merge: true });
     }
+  }
+
+  for (const docs of docsByCanonicalId.values()) {
+    if (docs.length <= 1) continue;
+    const winner = docs.reduce((current, next) => {
+      return resolveFreshnessEpochMillis(current.data()) >= resolveFreshnessEpochMillis(next.data()) ? current : next;
+    });
+    const duplicates = docs.filter((d) => d.id !== winner.id);
+    await Promise.all(duplicates.map((d) => deleteDoc(d.ref)));
   }
 
   localStorage.setItem(key, "done");
@@ -71,6 +94,7 @@ function toWritableRun(run: RunEntry): Record<string, unknown> {
   const { firestoreDocId: _firestoreDocId, ...plainRun } = run;
   return {
     ...plainRun,
+    id: canonicalRunId(run.id),
     dateISO: formatDateOnly(canonical),
     date: Timestamp.fromDate(canonical),
     updatedAt: Timestamp.fromDate(new Date())
@@ -83,19 +107,20 @@ function toRunEntry(data: Record<string, unknown>, fallbackId: string): RunEntry
   const dateISO = formatDateOnly(canonicalDateFromISO(resolved));
   return {
     ...run,
-    id: typeof run.id === "string" && run.id.length > 0 ? run.id : fallbackId,
+    id: canonicalRunId(typeof run.id === "string" && run.id.length > 0 ? run.id : fallbackId),
     firestoreDocId: fallbackId,
     dateISO
   };
 }
 
 async function resolveTargetDocumentId(userId: string, run: RunEntry): Promise<string> {
+  const canonicalId = canonicalRunId(run.id);
   if (run.firestoreDocId && run.firestoreDocId.trim().length > 0) {
     return run.firestoreDocId;
   }
 
   const snapshot = await getDocs(
-    query(collection(db, "users", userId, "runs"), where("id", "==", run.id))
+    query(collection(db, "users", userId, "runs"), where("id", "==", canonicalId))
   );
   if (!snapshot.empty) {
     const best = snapshot.docs.reduce((current, next) => {
@@ -104,7 +129,16 @@ async function resolveTargetDocumentId(userId: string, run: RunEntry): Promise<s
     return best.id;
   }
 
-  return run.id;
+  const allDocs = await getDocs(query(collection(db, "users", userId, "runs")));
+  const caseInsensitiveMatches = allDocs.docs.filter((d) => canonicalRunIdFromData(d.data(), d.id) === canonicalId);
+  if (caseInsensitiveMatches.length > 0) {
+    const best = caseInsensitiveMatches.reduce((current, next) => {
+      return resolveFreshnessEpochMillis(current.data()) >= resolveFreshnessEpochMillis(next.data()) ? current : next;
+    });
+    return best.id;
+  }
+
+  return canonicalId;
 }
 
 function canonicalDateFromISO(iso: string): Date {
@@ -162,4 +196,15 @@ function resolveFreshnessEpochMillis(data: Record<string, unknown>): number {
   if (date) return new Date(date).getTime();
 
   return 0;
+}
+
+function canonicalRunId(raw: string | undefined): string {
+  const trimmed = (raw ?? "").trim();
+  if (trimmed.length === 0) return crypto.randomUUID().toLowerCase();
+  return trimmed.toLowerCase();
+}
+
+function canonicalRunIdFromData(data: Record<string, unknown>, fallbackId: string): string {
+  const raw = typeof data.id === "string" && data.id.trim().length > 0 ? data.id : fallbackId;
+  return canonicalRunId(raw);
 }
