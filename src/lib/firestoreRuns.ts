@@ -1,4 +1,4 @@
-import { collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, Timestamp } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, Timestamp, where } from "firebase/firestore";
 import type { RunEntry } from "../types/models";
 import { db } from "./firebase";
 
@@ -28,7 +28,8 @@ export function subscribeRuns(userId: string, onRuns: (runs: RunEntry[]) => void
 
 export async function saveRun(userId: string, run: RunEntry): Promise<void> {
   const normalized = toWritableRun(run);
-  await setDoc(doc(db, "users", userId, "runs", run.id), normalized, { merge: true });
+  const targetDocId = await resolveTargetDocumentId(userId, run);
+  await setDoc(doc(db, "users", userId, "runs", targetDocId), normalized, { merge: true });
 }
 
 export async function removeRun(userId: string, runId: string): Promise<void> {
@@ -67,8 +68,9 @@ export async function normalizeRunDateFieldsOnce(userId: string): Promise<void> 
 function toWritableRun(run: RunEntry): Record<string, unknown> {
   const iso = run.dateISO || new Date().toISOString();
   const canonical = canonicalDateFromISO(iso);
+  const { firestoreDocId: _firestoreDocId, ...plainRun } = run;
   return {
-    ...run,
+    ...plainRun,
     dateISO: formatDateOnly(canonical),
     date: Timestamp.fromDate(canonical),
     updatedAt: Timestamp.fromDate(new Date())
@@ -82,8 +84,27 @@ function toRunEntry(data: Record<string, unknown>, fallbackId: string): RunEntry
   return {
     ...run,
     id: typeof run.id === "string" && run.id.length > 0 ? run.id : fallbackId,
+    firestoreDocId: fallbackId,
     dateISO
   };
+}
+
+async function resolveTargetDocumentId(userId: string, run: RunEntry): Promise<string> {
+  if (run.firestoreDocId && run.firestoreDocId.trim().length > 0) {
+    return run.firestoreDocId;
+  }
+
+  const snapshot = await getDocs(
+    query(collection(db, "users", userId, "runs"), where("id", "==", run.id))
+  );
+  if (!snapshot.empty) {
+    const best = snapshot.docs.reduce((current, next) => {
+      return resolveFreshnessEpochMillis(current.data()) >= resolveFreshnessEpochMillis(next.data()) ? current : next;
+    });
+    return best.id;
+  }
+
+  return run.id;
 }
 
 function canonicalDateFromISO(iso: string): Date {

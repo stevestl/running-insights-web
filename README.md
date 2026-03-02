@@ -10,10 +10,12 @@ Web version of your Running Insights app using React + Firebase Auth + Firestore
   - Pace: `1142` -> `11:42`
   - Duration: `123` -> `1:23`, `1230` -> `12:30`
 - Runs tab with filter, sort, edit, delete
+- Edit modal includes run ID footer and long-run mile/pace editing with fixed 1-mile splits
 - Analyze tab with trend chart + actionable insights
 - Firestore sync under `users/{uid}/runs/{runId}`
 - Icon-driven visual theme (wing-gold + stride-blue palette) across cards, charts, and controls
 - One-time date normalization fills missing date fields and reconciles `date`/`dateISO` to canonical day values for consistency with iOS
+- Saves now persist canonical `date` + `dateISO` + `updatedAt`, and update-in-place using Firestore document identity to avoid duplicate edit records
 
 ## Local setup
 

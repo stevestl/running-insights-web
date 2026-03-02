@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
-import { formatDuration, formatPace, parseDuration, parsePace } from "../lib/format";
+import { formatDuration, formatPace, parseDuration, parsePace, uid } from "../lib/format";
 import { averagePace, segmentResults, totalMiles } from "../lib/runMath";
 import type { RunEntry, RunType } from "../types/models";
 
 type Props = {
   runs: RunEntry[];
   onDelete: (runId: string) => void;
-  onUpdate: (run: RunEntry) => void;
+  onUpdate: (run: RunEntry) => Promise<void>;
 };
 
 type Sort = "Date (Newest)" | "Date (Oldest)" | "Distance (High)" | "Distance (Low)";
@@ -74,13 +74,26 @@ export function RunsView({ runs, onDelete, onUpdate }: Props): JSX.Element {
         </div>
       ))}
 
-      {editing && <EditModal run={editing} onClose={() => setEditing(null)} onSave={(r) => { onUpdate(r); setEditing(null); }} />}
+      {editing && <EditModal run={editing} onClose={() => setEditing(null)} onSave={async (r) => {
+        await onUpdate(r);
+        setEditing(null);
+      }} />}
     </div>
   );
 }
 
-function EditModal({ run, onClose, onSave }: { run: RunEntry; onClose: () => void; onSave: (run: RunEntry) => void; }): JSX.Element {
+function EditModal({ run, onClose, onSave }: { run: RunEntry; onClose: () => void; onSave: (run: RunEntry) => Promise<void>; }): JSX.Element {
   const [draft, setDraft] = useState<RunEntry>(run);
+  const [saving, setSaving] = useState(false);
+
+  async function save(): Promise<void> {
+    setSaving(true);
+    try {
+      await onSave(draft);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="modal-backdrop">
@@ -109,6 +122,29 @@ function EditModal({ run, onClose, onSave }: { run: RunEntry; onClose: () => voi
               setDraft({ ...draft, easyDurationSeconds: parsed, laps: [] });
             }} />
           </label>
+        ) : draft.type === "Long" ? (
+          <div className="stack-tight">
+            <div className="grid2">
+              <strong>Mile</strong>
+              <strong>Pace</strong>
+            </div>
+            {draft.laps.map((lap, idx) => (
+              <div className="grid2" key={lap.id}>
+                <div className="muted" style={{ paddingTop: 10 }}>{idx + 1}</div>
+                <input value={formatPace(lap.paceSecondsPerMile)} onChange={(e) => {
+                  const parsed = parsePace(e.target.value);
+                  if (parsed === null) return;
+                  const laps = draft.laps.slice();
+                  laps[idx] = { ...lap, distanceMiles: 1, paceSecondsPerMile: parsed };
+                  setDraft({ ...draft, laps });
+                }} />
+              </div>
+            ))}
+            <button className="secondary" onClick={() => {
+              const nextLap = { id: uid(), distanceMiles: 1, paceSecondsPerMile: 0 };
+              setDraft({ ...draft, laps: [...draft.laps, nextLap] });
+            }}>Add Mile Split</button>
+          </div>
         ) : (
           <div className="stack-tight">
             {draft.laps.map((lap, idx) => (
@@ -132,8 +168,9 @@ function EditModal({ run, onClose, onSave }: { run: RunEntry; onClose: () => voi
 
         <div className="row">
           <button className="secondary" onClick={onClose}>Cancel</button>
-          <button onClick={() => onSave(draft)}>Save</button>
+          <button onClick={() => { void save(); }} disabled={saving}>{saving ? "Saving..." : "Save"}</button>
         </div>
+        <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>ID: {draft.id}</div>
       </div>
     </div>
   );

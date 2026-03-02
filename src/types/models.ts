@@ -14,6 +14,7 @@ export type IntervalRepInput = {
 
 export type RunEntry = {
   id: string;
+  firestoreDocId?: string;
   dateISO: string;
   type: RunType;
   averageHeartRate: number;
