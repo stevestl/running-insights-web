@@ -120,6 +120,13 @@ export default function App(): JSX.Element {
   return (
     <div className="app">
       <header className="topbar">
+        <div className="brand">
+          <img src="./icon-192.png" alt="Running Insights logo" className="brand-logo" />
+          <div className="brand-copy">
+            <div className="brand-title">Running Insights</div>
+            <div className="brand-subtitle">Winged training dashboard</div>
+          </div>
+        </div>
         <div className="tabs">
           <button className={tab === "Add" ? "active" : ""} onClick={() => setTab("Add")}>Add</button>
           <button className={tab === "Runs" ? "active" : ""} onClick={() => setTab("Runs")}>Runs</button>

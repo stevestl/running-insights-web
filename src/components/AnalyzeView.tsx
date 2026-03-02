@@ -13,6 +13,7 @@ const runTypes: RunType[] = ["Long", "Tempo", "Interval", "Easy"];
 export function AnalyzeView({ runs }: Props): JSX.Element {
   const [selected, setSelected] = useState<RunType>("Long");
   const byType = runs.filter((r) => r.type === selected);
+  const chartColor = selected === "Easy" ? "#F9C32A" : "#225C82";
   const chartData = byType
     .slice()
     .sort((a, b) => a.dateISO.localeCompare(b.dateISO))
@@ -45,7 +46,7 @@ export function AnalyzeView({ runs }: Props): JSX.Element {
               <XAxis dataKey="date" />
               <YAxis />
               <Tooltip formatter={(v) => (selected === "Easy" ? formatDuration(Number(v)) : formatPace(Number(v)))} />
-              <Line type="monotone" dataKey="value" stroke="#0f766e" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="value" stroke={chartColor} strokeWidth={2.5} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
