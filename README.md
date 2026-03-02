@@ -13,6 +13,7 @@ Web version of your Running Insights app using React + Firebase Auth + Firestore
 - Analyze tab with trend chart + actionable insights
 - Firestore sync under `users/{uid}/runs/{runId}`
 - Icon-driven visual theme (wing-gold + stride-blue palette) across cards, charts, and controls
+- One-time date normalization fills missing date fields and reconciles `date`/`dateISO` to canonical day values for consistency with iOS
 
 ## Local setup
 

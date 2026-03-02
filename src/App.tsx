@@ -6,7 +6,7 @@ import { RunsView } from "./components/RunsView";
 import { AnalyzeView } from "./components/AnalyzeView";
 import { auth } from "./lib/firebase";
 import { makeDefaultRun } from "./lib/defaults";
-import { removeRun, saveRun, subscribeRuns } from "./lib/firestoreRuns";
+import { normalizeRunDateFieldsOnce, removeRun, saveRun, subscribeRuns } from "./lib/firestoreRuns";
 import { uid } from "./lib/format";
 import type { RunEntry, RunType } from "./types/models";
 
@@ -27,6 +27,9 @@ export default function App(): JSX.Element {
       setRuns([]);
       return;
     }
+    normalizeRunDateFieldsOnce(user.uid).catch((e) => {
+      setError(`Date normalization failed: ${(e as Error).message}`);
+    });
     return subscribeRuns(
       user.uid,
       (next) => setRuns(next),
