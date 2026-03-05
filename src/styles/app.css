@@ -64,6 +64,12 @@ input, select {
   font-size: 14px;
   background: #fff;
 }
+input::placeholder,
+textarea::placeholder {
+  color: #7f8f9a;
+  font-style: italic;
+  opacity: 1;
+}
 input:focus, select:focus {
   outline: none;
   border-color: var(--stride-blue);

@@ -66,17 +66,16 @@ export function AddRunView({ draft, onChange, onSave }: Props): JSX.Element {
       {draft.type === "Tempo" && (
         <div className="card">
           <h3>Tempo Entry</h3>
-          <div className="grid3">
-            <label>Miles<input type="number" inputMode="numeric" value={draft.tempoMilesCount} onChange={(e) => onChange(ensureTempoRows(draft, Number(e.target.value || 1), draft.tempoIntervalCount, draft.tempoIntervalDistanceMiles))} /></label>
-            <label>Tempo distance (mi)<input type="number" inputMode="decimal" step="0.01" value={draft.tempoIntervalDistanceMiles} onChange={(e) => onChange(ensureTempoRows(draft, draft.tempoMilesCount, draft.tempoIntervalCount, Number(e.target.value || 0.5)))} /></label>
-            <label>Tempo intervals<input type="number" inputMode="numeric" value={draft.tempoIntervalCount} onChange={(e) => onChange(ensureTempoRows(draft, draft.tempoMilesCount, Number(e.target.value || 1), draft.tempoIntervalDistanceMiles))} /></label>
+          <div className="grid2">
+            <label>Miles<input type="number" inputMode="numeric" value={draft.tempoMilesCount} onChange={(e) => onChange(ensureTempoRows(draft, Number(e.target.value || 1), draft.tempoIntervalDistanceMiles))} /></label>
+            <label>Tempo distance (mi)<input type="number" inputMode="decimal" step="0.01" value={draft.tempoIntervalDistanceMiles} onChange={(e) => onChange(ensureTempoRows(draft, draft.tempoMilesCount, Number(e.target.value || 0.5)))} /></label>
           </div>
           <table>
             <thead><tr><th>Row</th><th>Pace</th></tr></thead>
             <tbody>
               {draft.laps.map((lap, i) => (
                 <tr key={lap.id}>
-                  <td>{i < draft.tempoMilesCount ? `Mile ${i + 1}` : `Tempo ${i - draft.tempoMilesCount + 1}`}</td>
+                  <td>{i < draft.tempoMilesCount ? `Mile ${i + 1}` : "Tempo"}</td>
                   <td><input value={formatPace(lap.paceSecondsPerMile)} onChange={(e) => {
                     const parsed = parsePace(e.target.value);
                     if (parsed === null) return;
@@ -168,26 +167,37 @@ function ensureLongRows(run: RunEntry, miles: number): RunEntry {
 
 function applyTypeTemplate(run: RunEntry): RunEntry {
   if (run.type === "Long") return ensureLongRows(run, run.laps.length || 3);
-  if (run.type === "Tempo") return ensureTempoRows(run, run.tempoMilesCount || 3, run.tempoIntervalCount || 1, run.tempoIntervalDistanceMiles || 0.5);
+  if (run.type === "Tempo") return ensureTempoRows(run, run.tempoMilesCount || 3, run.tempoIntervalDistanceMiles || 0.5);
   if (run.type === "Interval") return ensureIntervalRows(run, run.intervalReps.length || 1);
   return { ...run, laps: [] };
 }
 
-function ensureTempoRows(run: RunEntry, miles: number, intervals: number, distance: number): RunEntry {
+function ensureTempoRows(run: RunEntry, miles: number, distance: number): RunEntry {
   const mileCount = Math.max(1, Math.min(30, miles || 3));
-  const intCount = Math.max(1, Math.min(30, intervals || 1));
   const dist = Math.max(0.05, Math.min(5, distance || 0.5));
 
+  const existingMilePaces = run.laps
+    .filter((lap) => Math.abs(lap.distanceMiles - 1) < 0.0001)
+    .map((lap) => lap.paceSecondsPerMile);
+  const existingTempoPace =
+    run.laps.find((lap) => Math.abs(lap.distanceMiles - 1) >= 0.0001)?.paceSecondsPerMile ??
+    run.laps[mileCount]?.paceSecondsPerMile ??
+    540;
+
   const laps = [
-    ...Array.from({ length: mileCount }, (_, i) => ({ id: run.laps[i]?.id ?? uid(), distanceMiles: 1, paceSecondsPerMile: run.laps[i]?.paceSecondsPerMile ?? 600 })),
-    ...Array.from({ length: intCount }, (_, i) => ({
-      id: run.laps[mileCount + i]?.id ?? uid(),
+    ...Array.from({ length: mileCount }, (_, i) => ({
+      id: run.laps[i]?.id ?? uid(),
+      distanceMiles: 1,
+      paceSecondsPerMile: existingMilePaces[i] ?? 600
+    })),
+    {
+      id: run.laps[mileCount]?.id ?? uid(),
       distanceMiles: dist,
-      paceSecondsPerMile: run.laps[mileCount + i]?.paceSecondsPerMile ?? 540
-    }))
+      paceSecondsPerMile: existingTempoPace
+    }
   ];
 
-  return { ...run, tempoMilesCount: mileCount, tempoIntervalCount: intCount, tempoIntervalDistanceMiles: dist, laps };
+  return { ...run, tempoMilesCount: mileCount, tempoIntervalCount: 1, tempoIntervalDistanceMiles: dist, laps };
 }
 
 function ensureIntervalRows(run: RunEntry, intervals: number): RunEntry {

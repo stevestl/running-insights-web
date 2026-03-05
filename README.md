@@ -14,6 +14,7 @@ Web version of your Running Insights app using React + Firebase Auth + Firestore
 - Analyze tab with trend chart + actionable insights
 - Firestore sync under `users/{uid}/runs/{runId}`
 - Icon-driven visual theme (wing-gold + stride-blue palette) across cards, charts, and controls
+- Placeholder text is styled as muted/italic hints to distinguish it from entered values
 - One-time data normalization fills missing date fields, reconciles `date`/`dateISO`, normalizes `id` casing, and removes case-only duplicate records
 - Saves now persist canonical `date` + `dateISO` + `updatedAt`, and update-in-place using Firestore document identity to avoid duplicate edit records
 

@@ -166,6 +166,32 @@ function normalizeRun(run: RunEntry): RunEntry {
     }
     return next;
   }
+  if (next.type === "Tempo") {
+    const tempoDistance = Math.max(0.05, next.tempoIntervalDistanceMiles || 0.5);
+    const mileLaps = next.laps
+      .filter((l) => l.distanceMiles > 0 && l.paceSecondsPerMile > 0 && Math.abs(l.distanceMiles - 1) < 0.0001)
+      .map((l) => ({ ...l, distanceMiles: 1 }));
+    const tempoPace =
+      next.laps.find((l) => l.distanceMiles > 0 && l.paceSecondsPerMile > 0 && Math.abs(l.distanceMiles - 1) >= 0.0001)?.paceSecondsPerMile ?? 0;
+    const mileCount = Math.max(1, next.tempoMilesCount || mileLaps.length || 3);
+    const rebuiltMiles = Array.from({ length: mileCount }, (_, i) => ({
+      id: mileLaps[i]?.id || uid(),
+      distanceMiles: 1,
+      paceSecondsPerMile: mileLaps[i]?.paceSecondsPerMile || 0
+    }));
+    next.tempoMilesCount = mileCount;
+    next.tempoIntervalCount = 1;
+    next.tempoIntervalDistanceMiles = tempoDistance;
+    next.laps = [
+      ...rebuiltMiles,
+      {
+        id: next.laps[mileCount]?.id || uid(),
+        distanceMiles: tempoDistance,
+        paceSecondsPerMile: tempoPace
+      }
+    ];
+    return next;
+  }
   next.laps = next.laps
     .filter((l) => l.distanceMiles > 0 && l.paceSecondsPerMile > 0)
     .map((l) => ({ ...l, id: l.id || uid() }));
